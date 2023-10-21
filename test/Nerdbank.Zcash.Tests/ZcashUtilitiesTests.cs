@@ -83,17 +83,27 @@ public class ZcashUtilitiesTests : TestBase
 	}
 
 	[Theory, PairwiseData]
+	public void TryParseKey_Sapling_DiversifiableFullViewingKey(ZcashNetwork network)
+	{
+		this.Assert_TryParseKey(network, a => a.FullViewing!.Sapling!);
+	}
+
+	[Theory, PairwiseData]
 	public void TryParseKey_Sapling_FullViewingKey(ZcashNetwork network)
 	{
-		// We specifically want to test round-tripping of the non-diversifiable key here.
-		this.Assert_TryParseKey<Nerdbank.Zcash.Sapling.FullViewingKey>(network, a => a.FullViewing!.Sapling!);
+		this.Assert_TryParseKey(network, a => a.FullViewing!.Sapling!.WithoutDiversifier);
+	}
+
+	[Theory, PairwiseData]
+	public void TryParseKey_Sapling_DiversifiableIncomingViewingKey(ZcashNetwork network)
+	{
+		this.Assert_TryParseKey(network, a => a.IncomingViewing.Sapling!);
 	}
 
 	[Theory, PairwiseData]
 	public void TryParseKey_Sapling_IncomingViewingKey(ZcashNetwork network)
 	{
-		// We specifically want to test round-tripping of the non-diversifiable key here.
-		this.Assert_TryParseKey<Nerdbank.Zcash.Sapling.IncomingViewingKey>(network, a => a.IncomingViewing.Sapling!);
+		this.Assert_TryParseKey(network, a => a.IncomingViewing.Sapling!.WithoutDiversifier);
 	}
 
 	[Fact]

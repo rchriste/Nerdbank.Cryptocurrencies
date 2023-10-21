@@ -7,9 +7,12 @@ namespace Nerdbank.Zcash.Sapling;
 /// A viewing key that includes the diversifier key for incoming transactions.
 /// </summary>
 [DebuggerDisplay($"{{{nameof(DebuggerDisplay)},nq}}")]
-public class DiversifiableIncomingViewingKey : IncomingViewingKey, IUnifiedEncodingElement, IIncomingViewingKey
+public class DiversifiableIncomingViewingKey : IncomingViewingKey, IUnifiedEncodingElement, IIncomingViewingKey, IKeyWithTextEncoding
 {
+	private const string Bech32MainNetworkHRP = "zdivks";
+	private const string Bech32TestNetworkHRP = "zdivktestsapling";
 	private readonly DiversifierKey dk;
+	private string? textEncoding;
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="DiversifiableIncomingViewingKey"/> class.
@@ -45,12 +48,85 @@ public class DiversifiableIncomingViewingKey : IncomingViewingKey, IUnifiedEncod
 	/// <inheritdoc/>
 	int IUnifiedEncodingElement.UnifiedDataLength => 32 * 2;
 
+	/// <inheritdoc cref="IKeyWithTextEncoding.TextEncoding" />
+	public new string TextEncoding
+	{
+		get
+		{
+			if (this.textEncoding is null)
+			{
+				// As specified in https://github.com/zcash/zips/issues/727.
+				Span<byte> encodedBytes = stackalloc byte[64];
+				Span<char> encodedChars = stackalloc char[512];
+				int byteLength = this.Dk.Value.CopyToRetLength(encodedBytes);
+				byteLength += this.Ivk.Value.CopyToRetLength(encodedBytes[byteLength..]);
+				string hrp = this.Network switch
+				{
+					ZcashNetwork.MainNet => Bech32MainNetworkHRP,
+					ZcashNetwork.TestNet => Bech32TestNetworkHRP,
+					_ => throw new NotSupportedException(),
+				};
+				int charLength = Bech32.Original.Encode(hrp, encodedBytes[..byteLength], encodedChars);
+				this.textEncoding = new string(encodedChars[..charLength]);
+			}
+
+			return this.textEncoding;
+		}
+	}
+
 	/// <summary>
 	/// Gets the diversification key.
 	/// </summary>
 	internal ref readonly DiversifierKey Dk => ref this.dk;
 
 	private string DebuggerDisplay => this.DefaultAddress;
+
+	/// <inheritdoc cref="IKeyWithTextEncoding.TryDecode(string, out DecodeError?, out string?, out IKeyWithTextEncoding?)"/>
+	static bool IKeyWithTextEncoding.TryDecode(string encoding, [NotNullWhen(false)] out DecodeError? decodeError, [NotNullWhen(false)] out string? errorMessage, [NotNullWhen(true)] out IKeyWithTextEncoding? key)
+	{
+		if (TryDecode(encoding, out decodeError, out errorMessage, out IncomingViewingKey? ivk))
+		{
+			key = ivk;
+			return true;
+		}
+
+		key = null;
+		return false;
+	}
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="DiversifiableIncomingViewingKey"/> class
+	/// from the bech32 encoding of an incoming viewing key as specified in ZIP-32.
+	/// </summary>
+	/// <inheritdoc cref="IKeyWithTextEncoding.TryDecode(string, out DecodeError?, out string?, out IKeyWithTextEncoding?)"/>
+	public static bool TryDecode(ReadOnlySpan<char> encoding, [NotNullWhen(false)] out DecodeError? decodeError, [NotNullWhen(false)] out string? errorMessage, [NotNullWhen(true)] out DiversifiableIncomingViewingKey? key)
+	{
+		Span<char> hrp = stackalloc char[50];
+		Span<byte> data = stackalloc byte[64];
+		if (!Bech32.Original.TryDecode(encoding, hrp, data, out decodeError, out errorMessage, out (int TagLength, int DataLength) length))
+		{
+			key = null;
+			return false;
+		}
+
+		hrp = hrp[..length.TagLength];
+		ZcashNetwork? network = hrp switch
+		{
+			Bech32MainNetworkHRP => ZcashNetwork.MainNet,
+			Bech32TestNetworkHRP => ZcashNetwork.TestNet,
+			_ => null,
+		};
+		if (network is null)
+		{
+			decodeError = DecodeError.UnrecognizedHRP;
+			errorMessage = $"Unexpected bech32 tag: {hrp}";
+			key = null;
+			return false;
+		}
+
+		key = new DiversifiableIncomingViewingKey(data[32..length.DataLength], data[..32], network.Value);
+		return true;
+	}
 
 	/// <inheritdoc/>
 	int IUnifiedEncodingElement.WriteUnifiedData(Span<byte> destination)

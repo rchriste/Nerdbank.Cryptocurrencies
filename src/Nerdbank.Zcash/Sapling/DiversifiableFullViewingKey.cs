@@ -8,9 +8,12 @@ namespace Nerdbank.Zcash.Sapling;
 /// and generate addresses.
 /// </summary>
 [DebuggerDisplay($"{{{nameof(DebuggerDisplay)},nq}}")]
-public class DiversifiableFullViewingKey : FullViewingKey, IFullViewingKey, IUnifiedEncodingElement, IEquatable<DiversifiableFullViewingKey>
+public class DiversifiableFullViewingKey : FullViewingKey, IFullViewingKey, IUnifiedEncodingElement, IEquatable<DiversifiableFullViewingKey>, IKeyWithTextEncoding
 {
+	private const string Bech32MainNetworkHRP = "zdviews";
+	private const string Bech32TestNetworkHRP = "zdviewtestsapling";
 	private readonly DiversifierKey dk;
+	private string? textEncoding;
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="DiversifiableFullViewingKey"/> class.
@@ -37,6 +40,30 @@ public class DiversifiableFullViewingKey : FullViewingKey, IFullViewingKey, IUni
 	/// <inheritdoc/>
 	int IUnifiedEncodingElement.UnifiedDataLength => this.Ak.Value.Length + this.Nk.Value.Length + this.Ovk.Value.Length + this.Dk.Value.Length;
 
+	/// <inheritdoc cref="IKeyWithTextEncoding.TextEncoding" />
+	public new string TextEncoding
+	{
+		get
+		{
+			if (this.textEncoding is null)
+			{
+				Span<byte> encodedBytes = stackalloc byte[128];
+				Span<char> encodedChars = stackalloc char[512];
+				int byteLength = this.Encode(encodedBytes);
+				string hrp = this.Network switch
+				{
+					ZcashNetwork.MainNet => Bech32MainNetworkHRP,
+					ZcashNetwork.TestNet => Bech32TestNetworkHRP,
+					_ => throw new NotSupportedException(),
+				};
+				int charLength = Bech32.Original.Encode(hrp, encodedBytes[..byteLength], encodedChars);
+				this.textEncoding = new string(encodedChars[..charLength]);
+			}
+
+			return this.textEncoding;
+		}
+	}
+
 	/// <inheritdoc/>
 	IIncomingViewingKey IFullViewingKey.IncomingViewingKey => this.IncomingViewingKey;
 
@@ -52,6 +79,55 @@ public class DiversifiableFullViewingKey : FullViewingKey, IFullViewingKey, IUni
 	internal ref readonly DiversifierKey Dk => ref this.dk;
 
 	private string DebuggerDisplay => this.IncomingViewingKey.DefaultAddress;
+
+	/// <inheritdoc cref="IKeyWithTextEncoding.TryDecode(string, out DecodeError?, out string?, out IKeyWithTextEncoding?)"/>
+	static bool IKeyWithTextEncoding.TryDecode(string encoding, [NotNullWhen(false)] out DecodeError? decodeError, [NotNullWhen(false)] out string? errorMessage, [NotNullWhen(true)] out IKeyWithTextEncoding? key)
+	{
+		if (TryDecode(encoding, out decodeError, out errorMessage, out DiversifiableFullViewingKey? fvk))
+		{
+			key = fvk;
+			return true;
+		}
+
+		key = null;
+		return false;
+	}
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="DiversifiableFullViewingKey"/> class
+	/// from the bech32 encoding of an full viewing key as specified in ZIP-32.
+	/// </summary>
+	/// <inheritdoc cref="IKeyWithTextEncoding.TryDecode(string, out DecodeError?, out string?, out IKeyWithTextEncoding?)"/>
+	public static bool TryDecode(string encoding, [NotNullWhen(false)] out DecodeError? decodeError, [NotNullWhen(false)] out string? errorMessage, [NotNullWhen(true)] out DiversifiableFullViewingKey? key)
+	{
+		Span<char> hrp = stackalloc char[50];
+		Span<byte> data = stackalloc byte[128];
+		if (!Bech32.Original.TryDecode(encoding, hrp, data, out decodeError, out errorMessage, out (int TagLength, int DataLength) length))
+		{
+			key = null;
+			return false;
+		}
+
+		hrp = hrp[..length.TagLength];
+		ZcashNetwork? network = hrp switch
+		{
+			Bech32MainNetworkHRP => ZcashNetwork.MainNet,
+			Bech32TestNetworkHRP => ZcashNetwork.TestNet,
+			_ => null,
+		};
+		if (network is null)
+		{
+			decodeError = DecodeError.UnrecognizedHRP;
+			errorMessage = $"Unexpected bech32 tag: {hrp}";
+			key = null;
+			return false;
+		}
+
+		key = new(
+			Decode(data[..length.DataLength], network.Value),
+			new DiversifierKey(data[96..length.DataLength]));
+		return true;
+	}
 
 	/// <inheritdoc/>
 	int IUnifiedEncodingElement.WriteUnifiedData(Span<byte> destination)
@@ -113,7 +189,7 @@ public class DiversifiableFullViewingKey : FullViewingKey, IFullViewingKey, IUni
 	public DiversifiableFullViewingKey DeriveInternal()
 	{
 		Span<byte> publicFvk = stackalloc byte[96];
-		this.Encode(publicFvk);
+		base.Encode(publicFvk);
 
 		Span<byte> internalFvk = stackalloc byte[96];
 		Span<byte> internalDk = stackalloc byte[32];
@@ -157,5 +233,21 @@ public class DiversifiableFullViewingKey : FullViewingKey, IFullViewingKey, IUni
 		IncomingViewingKey ivk = DiversifiableIncomingViewingKey.FromFullViewingKey(ak, nk, dk, network);
 		FullViewingKey fvk = new(new(ak), new(nk), ivk, new(ovk));
 		return new DiversifiableFullViewingKey(fvk, new(dk));
+	}
+
+	/// <summary>
+	/// Gets the raw encoding.
+	/// </summary>
+	/// <param name="rawEncoding">Receives the raw encoding. Must be at least 96 bytes in length.</param>
+	/// <returns>The number of bytes written to <paramref name="rawEncoding"/>. Always 128.</returns>
+	/// <remarks>
+	/// As specified in the <see href="https://github.com/zcash/zips/issues/727">ZIP-32 future edit</see>.
+	/// </remarks>
+	internal new int Encode(Span<byte> rawEncoding)
+	{
+		int written = 0;
+		written += base.Encode(rawEncoding[written..]);
+		written += this.Dk.Value.CopyToRetLength(rawEncoding[written..]);
+		return written;
 	}
 }

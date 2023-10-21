@@ -58,6 +58,8 @@ public static class ZcashUtilities
 	/// <item>Orchard extended spending keys (<c>secret-orchard-extsk-main</c>)</item>
 	/// <item>Sapling extended spending keys (<c>secret-extended-key-main</c>)</item>
 	/// <item>Sapling extended full viewing keys (<c>zxviews</c>)</item>
+	/// <item>Sapling diversifiable full viewing keys (<c>zdviews</c>)</item>
+	/// <item>Sapling diversifiable incoming viewing keys (<c>zdivks</c>)</item>
 	/// <item>Sapling full viewing keys (<c>zviews</c>)</item>
 	/// <item>Sapling incoming viewing keys (<c>zivks</c>)</item>
 	/// <item>Transparent spending keys (<c>xprv</c>)</item>
@@ -82,6 +84,14 @@ public static class ZcashUtilities
 		else if (Zip32HDWallet.Sapling.ExtendedFullViewingKey.TryDecode(encodedKey, out _, out _, out Zip32HDWallet.Sapling.ExtendedFullViewingKey? saplingEFVK))
 		{
 			key = saplingEFVK;
+		}
+		else if (Sapling.DiversifiableFullViewingKey.TryDecode(encodedKey, out _, out _, out Sapling.DiversifiableFullViewingKey? saplingDFVK))
+		{
+			key = saplingDFVK;
+		}
+		else if (Sapling.DiversifiableIncomingViewingKey.TryDecode(encodedKey, out _, out _, out Sapling.DiversifiableIncomingViewingKey? saplingDIVK))
+		{
+			key = saplingDIVK;
 		}
 		else if (Sapling.FullViewingKey.TryDecode(encodedKey, out _, out _, out Sapling.FullViewingKey? saplingFVK))
 		{

@@ -391,12 +391,14 @@ Nerdbank.Zcash.Sapling.DiversifiableFullViewingKey.CheckReceiver(Nerdbank.Zcash.
 Nerdbank.Zcash.Sapling.DiversifiableFullViewingKey.DeriveInternal() -> Nerdbank.Zcash.Sapling.DiversifiableFullViewingKey!
 Nerdbank.Zcash.Sapling.DiversifiableFullViewingKey.Equals(Nerdbank.Zcash.Sapling.DiversifiableFullViewingKey? other) -> bool
 Nerdbank.Zcash.Sapling.DiversifiableFullViewingKey.IncomingViewingKey.get -> Nerdbank.Zcash.Sapling.DiversifiableIncomingViewingKey!
+Nerdbank.Zcash.Sapling.DiversifiableFullViewingKey.TextEncoding.get -> string!
 Nerdbank.Zcash.Sapling.DiversifiableFullViewingKey.TryGetDiversifierIndex(Nerdbank.Zcash.SaplingReceiver receiver, out Nerdbank.Zcash.DiversifierIndex? diversifierIndex) -> bool
 Nerdbank.Zcash.Sapling.DiversifiableFullViewingKey.WithoutDiversifier.get -> Nerdbank.Zcash.Sapling.FullViewingKey!
 Nerdbank.Zcash.Sapling.DiversifiableIncomingViewingKey
 Nerdbank.Zcash.Sapling.DiversifiableIncomingViewingKey.CheckReceiver(Nerdbank.Zcash.SaplingReceiver receiver) -> bool
 Nerdbank.Zcash.Sapling.DiversifiableIncomingViewingKey.CreateDefaultReceiver() -> Nerdbank.Zcash.SaplingReceiver
 Nerdbank.Zcash.Sapling.DiversifiableIncomingViewingKey.DefaultAddress.get -> Nerdbank.Zcash.SaplingAddress!
+Nerdbank.Zcash.Sapling.DiversifiableIncomingViewingKey.TextEncoding.get -> string!
 Nerdbank.Zcash.Sapling.DiversifiableIncomingViewingKey.TryCreateReceiver(ref Nerdbank.Zcash.DiversifierIndex diversifierIndex, out Nerdbank.Zcash.SaplingReceiver? receiver) -> bool
 Nerdbank.Zcash.Sapling.DiversifiableIncomingViewingKey.TryGetDiversifierIndex(Nerdbank.Zcash.SaplingReceiver receiver, out Nerdbank.Zcash.DiversifierIndex? diversifierIndex) -> bool
 Nerdbank.Zcash.Sapling.DiversifiableIncomingViewingKey.WithoutDiversifier.get -> Nerdbank.Zcash.Sapling.IncomingViewingKey!
@@ -798,6 +800,8 @@ static Nerdbank.Zcash.RawTransaction.SproutFields.operator !=(Nerdbank.Zcash.Raw
 static Nerdbank.Zcash.RawTransaction.SproutFields.operator ==(Nerdbank.Zcash.RawTransaction.SproutFields left, Nerdbank.Zcash.RawTransaction.SproutFields right) -> bool
 static Nerdbank.Zcash.RawTransaction.TransparentFields.operator !=(Nerdbank.Zcash.RawTransaction.TransparentFields left, Nerdbank.Zcash.RawTransaction.TransparentFields right) -> bool
 static Nerdbank.Zcash.RawTransaction.TransparentFields.operator ==(Nerdbank.Zcash.RawTransaction.TransparentFields left, Nerdbank.Zcash.RawTransaction.TransparentFields right) -> bool
+static Nerdbank.Zcash.Sapling.DiversifiableFullViewingKey.TryDecode(string! encoding, out Nerdbank.Cryptocurrencies.DecodeError? decodeError, out string? errorMessage, out Nerdbank.Zcash.Sapling.DiversifiableFullViewingKey? key) -> bool
+static Nerdbank.Zcash.Sapling.DiversifiableIncomingViewingKey.TryDecode(System.ReadOnlySpan<char> encoding, out Nerdbank.Cryptocurrencies.DecodeError? decodeError, out string? errorMessage, out Nerdbank.Zcash.Sapling.DiversifiableIncomingViewingKey? key) -> bool
 static Nerdbank.Zcash.Sapling.FullViewingKey.TryDecode(string! encoding, out Nerdbank.Cryptocurrencies.DecodeError? decodeError, out string? errorMessage, out Nerdbank.Zcash.Sapling.FullViewingKey? key) -> bool
 static Nerdbank.Zcash.Sapling.IncomingViewingKey.TryDecode(System.ReadOnlySpan<char> encoding, out Nerdbank.Cryptocurrencies.DecodeError? decodeError, out string? errorMessage, out Nerdbank.Zcash.Sapling.IncomingViewingKey? key) -> bool
 static Nerdbank.Zcash.SaplingReceiver.UnifiedReceiverTypeCode.get -> byte
