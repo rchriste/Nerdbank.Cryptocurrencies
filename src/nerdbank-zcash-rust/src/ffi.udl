@@ -17,6 +17,7 @@ dictionary Config {
 	string wallet_name;
 	string log_name;
 	boolean monitor_mempool;
+	u32 minimum_confirmations;
 };
 
 dictionary WalletInfo {
@@ -107,6 +108,16 @@ dictionary PoolBalances {
 	u64? transparent_balance;
 };
 
+dictionary UserBalances {
+    u64 spendable;
+    u64 immature_change;
+    u64 minimum_fees;
+    u64 immature_income;
+    u64 dust;
+    u64 incoming;
+    u64 incoming_dust;
+};
+
 namespace LightWallet {
 	[Throws=LightWalletError]
 	u64 lightwallet_get_block_height(string server_uri);
@@ -145,4 +156,7 @@ namespace LightWallet {
 
 	[Throws=LightWalletError]
 	PoolBalances lightwallet_get_balances(u64 handle);
+	
+	[Throws=LightWalletError]
+	UserBalances lightwallet_get_user_balances(u64 handle);
 };

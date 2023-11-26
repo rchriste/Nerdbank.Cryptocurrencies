@@ -3,13 +3,13 @@
 
 using System.CommandLine;
 using System.CommandLine.IO;
-using Nerdbank.Cryptocurrencies;
+using Nerdbank.Bitcoin;
 
 namespace Nerdbank.Zcash.Cli;
 
 internal class NewAccountCommand
 {
-	private const int SeedPhraseWordLengthDefault = 24;
+	private static readonly int SeedPhraseWordLengthDefault = Bip39Mnemonic.WordsRequiredForEntropyLength(Zip32HDWallet.MinimumEntropyLengthInBits);
 
 	private NewAccountCommand()
 	{
@@ -43,7 +43,7 @@ internal class NewAccountCommand
 		seedPhraseWordLengthOption.AddValidator(v =>
 		{
 			int value = v.GetValueForOption(seedPhraseWordLengthOption);
-			if (value % 3 != 0 || value <= 0)
+			if (value % 3 != 0 || value < Bip39Mnemonic.WordsRequiredForEntropyLength(Zip32HDWallet.MinimumEntropyLengthInBits))
 			{
 				v.ErrorMessage = Strings.BadSeedPhraseLength;
 			}
@@ -207,16 +207,7 @@ internal class NewAccountCommand
 
 	private void PrintAccountInfo(ZcashAccount account)
 	{
-		this.Console.WriteLine($"Network:         {account.Network}");
 		this.Console.WriteLine($"Index:           {this.AccountIndex}");
-		this.Console.WriteLine(string.Empty);
-		this.Console.WriteLine($"Unified address:      {account.DefaultAddress}");
-		this.Console.WriteLine($"Orchard receiver:     {account.IncomingViewing.Orchard!.DefaultAddress}");
-		this.Console.WriteLine($"Sapling receiver:     {account.IncomingViewing.Sapling!.DefaultAddress}");
-		this.Console.WriteLine($"Transparent receiver: {account.IncomingViewing.Transparent!.DefaultAddress}");
-
-		this.Console.WriteLine(string.Empty);
-		this.Console.WriteLine($"Unified full viewing key:     {account.FullViewing!.UnifiedKey}");
-		this.Console.WriteLine($"Unified incoming viewing key: {account.IncomingViewing!.UnifiedKey}");
+		Utilities.PrintAccountInfo(this.Console, account);
 	}
 }

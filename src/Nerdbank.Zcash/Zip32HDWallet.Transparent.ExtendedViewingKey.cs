@@ -2,8 +2,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using NBitcoin.Secp256k1;
-using Org.BouncyCastle.Tls;
-using static Nerdbank.Cryptocurrencies.Bip32HDWallet;
+using Nerdbank.Bitcoin;
+using static Nerdbank.Bitcoin.Bip32HDWallet;
 
 namespace Nerdbank.Zcash;
 
@@ -28,6 +28,7 @@ public partial class Zip32HDWallet
 				Requires.NotNull(copyFrom);
 				Requires.Argument(copyFrom.IsTestNet == network.IsTestNet(), nameof(network), "Does not agree with IsTestNet on base type.");
 				this.Network = network;
+				this.Key = new Zcash.Transparent.PublicKey(this.CryptographicKey, network);
 			}
 
 			/// <summary>
@@ -41,10 +42,16 @@ public partial class Zip32HDWallet
 			/// <param name="childIndex">The index of this key among its peers.</param>
 			/// <param name="network">The Zcash network this key should be used on.</param>
 			internal ExtendedViewingKey(ECPubKey key, in ChainCode chainCode, in FullViewingKeyTag parentFullViewingKeyTag, byte depth, uint childIndex, ZcashNetwork network)
-				: base(key, chainCode.Value, parentFullViewingKeyTag.Value, depth, childIndex, network.IsTestNet())
+				: base(key, chainCode, parentFullViewingKeyTag.AsParentFingerprint, depth, childIndex, network.IsTestNet())
 			{
 				this.Network = network;
+				this.Key = new Zcash.Transparent.PublicKey(this.CryptographicKey, network);
 			}
+
+			/// <summary>
+			/// Gets the public key.
+			/// </summary>
+			public new Zcash.Transparent.PublicKey Key { get; }
 
 			/// <inheritdoc/>
 			public ZcashNetwork Network { get; }
@@ -60,7 +67,7 @@ public partial class Zip32HDWallet
 					}
 					else
 					{
-						ExtendedViewingKey derived = this.GetReceiverIndex(0);
+						ExtendedViewingKey derived = this.GetReceivingKey(0);
 						Assumes.True(derived.Depth == 5);
 						return derived.DefaultAddress;
 					}
@@ -71,13 +78,13 @@ public partial class Zip32HDWallet
 			ZcashAddress IIncomingViewingKey.DefaultAddress => this.DefaultAddress;
 
 			/// <inheritdoc/>
-			public FullViewingKeyFingerprint Fingerprint => throw new NotSupportedException();
+			public ref readonly FullViewingKeyFingerprint Fingerprint => throw new NotSupportedException();
 
 			/// <inheritdoc/>
-			public FullViewingKeyTag ParentFullViewingKeyTag => new(this.ParentFingerprint);
+			public ref readonly FullViewingKeyTag ParentFullViewingKeyTag => ref FullViewingKeyTag.From(this.ParentFingerprint);
 
 			/// <inheritdoc/>
-			public new ChainCode ChainCode => new(base.ChainCode);
+			public new ref readonly ChainCode ChainCode => ref base.ChainCode;
 
 			/// <summary>
 			/// Gets the incoming viewing key, which is the receiving address chain derivation of the full viewing key.
@@ -159,12 +166,12 @@ public partial class Zip32HDWallet
 			/// <param name="index">The address index to generate the viewing key for.</param>
 			/// <returns>The derived key.</returns>
 			/// <exception cref="InvalidOperationException">Thrown if this instance does not conform to either a full or viewing key.</exception>
-			public ExtendedViewingKey GetReceiverIndex(uint index)
+			public ExtendedViewingKey GetReceivingKey(uint index)
 			{
-				KeyPath derivationPath = this.Depth switch
+				Bip32KeyPath derivationPath = this.Depth switch
 				{
-					3 => new KeyPath(index, new KeyPath((uint)Bip44MultiAccountHD.Change.ReceivingAddressChain)),
-					4 when this.ChildIndex == (uint)Bip44MultiAccountHD.Change.ReceivingAddressChain => new KeyPath(index),
+					3 => new Bip32KeyPath(index, new Bip32KeyPath((uint)Bip44MultiAccountHD.Change.ReceivingAddressChain)),
+					4 when this.ChildIndex == (uint)Bip44MultiAccountHD.Change.ReceivingAddressChain => new Bip32KeyPath(index),
 					_ => throw new InvalidOperationException("This is not the full or incoming viewing key."),
 				};
 				return this.Derive(derivationPath);
@@ -249,7 +256,7 @@ public partial class Zip32HDWallet
 			bool IUnifiedEncodingElementEqualityComparer.Equals(IUnifiedEncodingElementEqualityComparer? other)
 			{
 				return other is ExtendedViewingKey otherKey
-					&& this.ChainCode.Value.SequenceEqual(otherKey.ChainCode.Value)
+					&& this.ChainCode.Equals(otherKey.ChainCode)
 					&& this.CryptographicKey.Equals(otherKey.CryptographicKey)
 					&& this.Depth == otherKey.Depth;
 			}
@@ -258,7 +265,7 @@ public partial class Zip32HDWallet
 			int IUnifiedEncodingElementEqualityComparer.GetHashCode()
 			{
 				HashCode result = default;
-				result.AddBytes(this.ChainCode.Value);
+				result.AddBytes(this.ChainCode);
 				result.Add(this.CryptographicKey);
 				result.Add(this.Depth);
 				return result.ToHashCode();
@@ -269,8 +276,8 @@ public partial class Zip32HDWallet
 			{
 				return other is not null
 					&& this.Identifier.SequenceEqual(other.Identifier)
-					&& this.ChainCode.Value.SequenceEqual(other.ChainCode.Value)
-					&& this.ParentFullViewingKeyTag.Value.SequenceEqual(other.ParentFullViewingKeyTag.Value)
+					&& this.ChainCode.Equals(other.ChainCode)
+					&& this.ParentFullViewingKeyTag.Equals(other.ParentFullViewingKeyTag)
 					&& this.Depth == other.Depth
 					&& this.ChildIndex == other.ChildIndex
 					&& this.Network == other.Network;
@@ -292,7 +299,7 @@ public partial class Zip32HDWallet
 			int IUnifiedEncodingElement.WriteUnifiedData(Span<byte> destination)
 			{
 				int written = 0;
-				written += this.ChainCode.Value.CopyToRetLength(destination[written..]);
+				written += this.ChainCode[..].CopyToRetLength(destination[written..]);
 				this.CryptographicKey.WriteToSpan(compressed: true, destination[written..], out int keyLength);
 				written += keyLength;
 				Assumes.True(written == 65);

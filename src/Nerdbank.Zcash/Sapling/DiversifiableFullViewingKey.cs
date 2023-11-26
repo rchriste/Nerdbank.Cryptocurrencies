@@ -26,7 +26,7 @@ public class DiversifiableFullViewingKey : FullViewingKey, IFullViewingKey, IUni
 		this.dk = dk;
 
 		// Replace the base class's value with our own that includes the Dk value.
-		this.IncomingViewingKey = new DiversifiableIncomingViewingKey(base.IncomingViewingKey.Ivk.Value, this.Dk.Value, fullViewingKey.Network);
+		this.IncomingViewingKey = new DiversifiableIncomingViewingKey(base.IncomingViewingKey.Ivk, this.Dk, fullViewingKey.Network);
 	}
 
 	/// <summary>
@@ -38,7 +38,7 @@ public class DiversifiableFullViewingKey : FullViewingKey, IFullViewingKey, IUni
 	byte IUnifiedEncodingElement.UnifiedTypeCode => UnifiedTypeCodes.Sapling;
 
 	/// <inheritdoc/>
-	int IUnifiedEncodingElement.UnifiedDataLength => this.Ak.Value.Length + this.Nk.Value.Length + this.Ovk.Value.Length + this.Dk.Value.Length;
+	int IUnifiedEncodingElement.UnifiedDataLength => this.Ak[..].Length + this.Nk[..].Length + this.Ovk[..].Length + this.Dk[..].Length;
 
 	/// <inheritdoc cref="IKeyWithTextEncoding.TextEncoding" />
 	public new string TextEncoding
@@ -133,10 +133,10 @@ public class DiversifiableFullViewingKey : FullViewingKey, IFullViewingKey, IUni
 	int IUnifiedEncodingElement.WriteUnifiedData(Span<byte> destination)
 	{
 		int written = 0;
-		written += this.Ak.Value.CopyToRetLength(destination[written..]);
-		written += this.Nk.Value.CopyToRetLength(destination[written..]);
-		written += this.Ovk.Value.CopyToRetLength(destination[written..]);
-		written += this.Dk.Value.CopyToRetLength(destination[written..]);
+		written += this.Ak[..].CopyToRetLength(destination[written..]);
+		written += this.Nk[..].CopyToRetLength(destination[written..]);
+		written += this.Ovk[..].CopyToRetLength(destination[written..]);
+		written += this.Dk[..].CopyToRetLength(destination[written..]);
 		return written;
 	}
 
@@ -165,11 +165,12 @@ public class DiversifiableFullViewingKey : FullViewingKey, IFullViewingKey, IUni
 	/// </remarks>
 	public bool TryGetDiversifierIndex(SaplingReceiver receiver, [NotNullWhen(true)] out DiversifierIndex? diversifierIndex)
 	{
+		Bytes96 rawEncoding = this.ToBytes();
 		Span<byte> diversifierSpan = stackalloc byte[11];
-		switch (NativeMethods.DecryptSaplingDiversifier(this.ToBytes().Value, this.Dk.Value, receiver.Span, diversifierSpan, out _))
+		switch (NativeMethods.DecryptSaplingDiversifier(rawEncoding, this.Dk, receiver.Span, diversifierSpan, out _))
 		{
 			case 0:
-				diversifierIndex = new(diversifierSpan);
+				diversifierIndex = DiversifierIndex.From(diversifierSpan);
 				return true;
 			case 1:
 				diversifierIndex = null;
@@ -194,7 +195,7 @@ public class DiversifiableFullViewingKey : FullViewingKey, IFullViewingKey, IUni
 		Span<byte> internalFvk = stackalloc byte[96];
 		Span<byte> internalDk = stackalloc byte[32];
 
-		int result = NativeMethods.DeriveSaplingInternalFullViewingKey(publicFvk, this.Dk.Value, internalFvk, internalDk);
+		int result = NativeMethods.DeriveSaplingInternalFullViewingKey(publicFvk, this.Dk, internalFvk, internalDk);
 		if (result != 0)
 		{
 			throw new InvalidKeyException("Unable to derive internal full viewing key.");
@@ -208,7 +209,7 @@ public class DiversifiableFullViewingKey : FullViewingKey, IFullViewingKey, IUni
 	{
 		return other is not null
 			&& base.Equals(other)
-			&& this.Dk.Value.SequenceEqual(other.Dk.Value);
+			&& this.Dk.Equals(other.Dk);
 	}
 
 	/// <inheritdoc/>
@@ -219,7 +220,7 @@ public class DiversifiableFullViewingKey : FullViewingKey, IFullViewingKey, IUni
 	{
 		HashCode result = default;
 		result.Add(base.GetHashCode());
-		result.AddBytes(this.Dk.Value);
+		result.AddBytes(this.Dk);
 		return result.ToHashCode();
 	}
 
@@ -247,7 +248,7 @@ public class DiversifiableFullViewingKey : FullViewingKey, IFullViewingKey, IUni
 	{
 		int written = 0;
 		written += base.Encode(rawEncoding[written..]);
-		written += this.Dk.Value.CopyToRetLength(rawEncoding[written..]);
+		written += this.Dk[..].CopyToRetLength(rawEncoding[written..]);
 		return written;
 	}
 }

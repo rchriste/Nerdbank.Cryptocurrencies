@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Nerdbank.Bitcoin;
 
 public abstract class TestBase
 {
@@ -28,7 +29,7 @@ public abstract class TestBase
 
 	protected static readonly Uri LightWalletServerTestNet = new("https://zcash.mysideoftheweb.com:19067/");
 
-	protected static readonly Bip39Mnemonic Mnemonic = Bip39Mnemonic.Parse("badge bless baby bird anger wage memory extend word isolate equip faith");
+	protected static readonly Bip39Mnemonic Mnemonic = Bip39Mnemonic.Parse("weapon solid program critic you long skill foot damp kingdom west history car crunch park increase excite hidden bless spot matter razor memory garbage");
 
 	/// <summary>
 	/// The maximum length of time to wait for something that we expect will happen

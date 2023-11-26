@@ -29,7 +29,7 @@ public class DiversifiableIncomingViewingKey : IncomingViewingKey, IUnifiedEncod
 	/// <summary>
 	/// Gets the same key, but with the diversifier key removed.
 	/// </summary>
-	public IncomingViewingKey WithoutDiversifier => new(this.Ivk.Value, this.Network);
+	public IncomingViewingKey WithoutDiversifier => new(this.Ivk, this.Network);
 
 	/// <inheritdoc/>
 	ZcashAddress IIncomingViewingKey.DefaultAddress => this.DefaultAddress;
@@ -58,8 +58,8 @@ public class DiversifiableIncomingViewingKey : IncomingViewingKey, IUnifiedEncod
 				// As specified in https://github.com/zcash/zips/issues/727.
 				Span<byte> encodedBytes = stackalloc byte[64];
 				Span<char> encodedChars = stackalloc char[512];
-				int byteLength = this.Dk.Value.CopyToRetLength(encodedBytes);
-				byteLength += this.Ivk.Value.CopyToRetLength(encodedBytes[byteLength..]);
+				int byteLength = this.Dk[..].CopyToRetLength(encodedBytes);
+				byteLength += this.Ivk[..].CopyToRetLength(encodedBytes[byteLength..]);
 				string hrp = this.Network switch
 				{
 					ZcashNetwork.MainNet => Bech32MainNetworkHRP,
@@ -132,8 +132,8 @@ public class DiversifiableIncomingViewingKey : IncomingViewingKey, IUnifiedEncod
 	int IUnifiedEncodingElement.WriteUnifiedData(Span<byte> destination)
 	{
 		int written = 0;
-		written += this.Dk.Value.CopyToRetLength(destination[written..]);
-		written += this.Ivk.Value.CopyToRetLength(destination[written..]);
+		written += this.Dk[..].CopyToRetLength(destination[written..]);
+		written += this.Ivk[..].CopyToRetLength(destination[written..]);
 		return written;
 	}
 
@@ -156,8 +156,8 @@ public class DiversifiableIncomingViewingKey : IncomingViewingKey, IUnifiedEncod
 	{
 		Span<byte> receiverBytes = stackalloc byte[SaplingReceiver.Length];
 		Span<byte> diversifierIndexSpan = stackalloc byte[11];
-		diversifierIndex.Value.CopyTo(diversifierIndexSpan);
-		if (NativeMethods.TryGetSaplingReceiver(this.Ivk.Value, this.Dk.Value, diversifierIndexSpan, receiverBytes) != 0)
+		diversifierIndex[..].CopyTo(diversifierIndexSpan);
+		if (NativeMethods.TryGetSaplingReceiver(this.Ivk, this.Dk, diversifierIndexSpan, receiverBytes) != 0)
 		{
 			receiver = null;
 			return false;
@@ -205,7 +205,7 @@ public class DiversifiableIncomingViewingKey : IncomingViewingKey, IUnifiedEncod
 	public bool TryGetDiversifierIndex(SaplingReceiver receiver, [NotNullWhen(true)] out DiversifierIndex? diversifierIndex)
 	{
 		Span<byte> diversifierSpan = stackalloc byte[11];
-		switch (NativeMethods.DecryptSaplingDiversifierWithIvk(this.Ivk.Value, this.Dk.Value, receiver.Span, diversifierSpan))
+		switch (NativeMethods.DecryptSaplingDiversifierWithIvk(this.Ivk, this.Dk, receiver.Span, diversifierSpan))
 		{
 			case 0:
 				diversifierIndex = new(diversifierSpan);
